@@ -27,12 +27,15 @@ import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.tasks.OnSuccessListener;
 
+import java.util.Calendar;
+
 public class MainActivity extends AppCompatActivity {
 
     private static final int REQUEST_LOCATION_PERMISSION = 123;
 
     private TextView currentWeatherTextView;
     private TextView upcomingWeatherTextView;
+    private TextView hourlyWeatherTextView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,6 +44,7 @@ public class MainActivity extends AppCompatActivity {
 
         currentWeatherTextView = findViewById(R.id.current_weather);
         upcomingWeatherTextView = findViewById(R.id.upcoming_weather);
+        hourlyWeatherTextView = findViewById(R.id.hourly_weather);
 
         // Check and request fine and coarse location permissions if not granted
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -57,16 +61,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void fetchWeatherBasedOnLocation() {
-        // Use location services to fetch user's location and then fetch weather data
+        // Use location services to fetch the user's location and then fetch weather data
         FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
         fusedLocationClient.getLastLocation()
@@ -88,7 +86,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void fetchWeatherData(double latitude, double longitude) {
         String apiKey = "ff546393f7f449c58c444433232508"; // Replace with your WeatherAPI.com API key
-        String apiUrl = "https://api.weatherapi.com/v1/forecast.json?key=" + apiKey + "&q=" + latitude + "," + longitude + "&days=2";
+        String apiUrl = "https://api.weatherapi.com/v1/forecast.json?key=" + apiKey + "&q=" + latitude + "," + longitude + "&days=2&hours=4";
 
         RequestQueue queue = Volley.newRequestQueue(this);
         JsonObjectRequest request = new JsonObjectRequest(Request.Method.GET, apiUrl, null,
@@ -119,7 +117,7 @@ public class MainActivity extends AppCompatActivity {
 
                                     // Parse the condition object
                                     JSONObject conditionObject = forecastDayData.getJSONObject("day").getJSONObject("condition");
-                                    String conditionText = conditionObject.getString("text"); // Get the condition text
+                                    String conditionText = conditionObject.getString("text"); // Use the condition text
 
                                     double maxTempFahrenheit = forecastDayData.getJSONObject("day").getDouble("maxtemp_f");
                                     double minTempFahrenheit = forecastDayData.getJSONObject("day").getDouble("mintemp_f");
@@ -137,47 +135,73 @@ public class MainActivity extends AppCompatActivity {
                             } else {
                                 upcomingWeatherTextView.setText("No upcoming weather data available.");
                             }
+
+                            // Parse the hourly forecast data from the JSON response and update Today's Hourly Weather UI
+                            JSONArray hourlyForecast = forecast.getJSONArray("forecastday")
+                                    .getJSONObject(0)
+                                    .getJSONArray("hour");
+
+// Check if there are hourly forecast data available
+                            if (hourlyForecast.length() > 0) {
+                                StringBuilder hourlyWeather = new StringBuilder("Today's Hourly Weather:\n");
+
+                                // Get the current time to find the start time for the forecast
+                                Calendar calendar = Calendar.getInstance();
+                                int currentHour = calendar.get(Calendar.HOUR_OF_DAY); // Get current hour
+                                int startHour = (currentHour + 1) % 24; // Calculate start hour, wrapping around to 0 if needed
+
+                                // Loop through the next 8 hours, starting from the calculated start hour
+                                for (int i = 0; i < 8; i++) {
+                                    int forecastHour = (startHour + i) % 24; // Calculate the forecast hour
+                                    String formattedHour = String.format("%02d:00", forecastHour); // Format the hour (e.g., "08:00")
+
+                                    for (int j = 0; j < hourlyForecast.length(); j++) {
+                                        JSONObject hourlyData = hourlyForecast.getJSONObject(j);
+                                        int hour = hourlyData.getInt("time_epoch");
+                                        double tempFahrenheit = hourlyData.getDouble("temp_f");
+
+                                        // Check if the current data corresponds to the forecast hour
+                                        if (hour == forecastHour * 3600) { // Convert forecastHour to seconds
+                                            // Append the forecast data to the hourlyWeather StringBuilder
+                                            hourlyWeather.append("\nTime: ").append(formattedHour);
+                                            hourlyWeather.append("\nTemperature: ").append(tempFahrenheit).append("°F");
+                                            hourlyWeather.append("\n");
+                                            break; // Exit the inner loop once data is found for the forecast hour
+                                        }
+                                    }
+                                }
+
+                                hourlyWeatherTextView.setText(hourlyWeather.toString());
+                            } else {
+                                hourlyWeatherTextView.setText("No hourly weather data available.");
+                            }
                         } catch (JSONException e) {
                             e.printStackTrace();
-                            handleError("Error parsing weather data");
+                            Toast.makeText(MainActivity.this, "Error parsing weather data", Toast.LENGTH_SHORT).show();
                         }
                     }
-                },
-                new Response.ErrorListener() {
-                    @Override
-                    public void onErrorResponse(VolleyError error) {
-                        handleError("Error fetching weather data: " + error.getMessage());
-                    }
-                });
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                error.printStackTrace();
+                Toast.makeText(MainActivity.this, "Error fetching weather data", Toast.LENGTH_SHORT).show();
+            }
+        });
 
         queue.add(request);
     }
 
-    // Handle permission requests
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
         if (requestCode == REQUEST_LOCATION_PERMISSION) {
-            if (grantResults.length > 0 &&
-                    grantResults[0] == PackageManager.PERMISSION_GRANTED &&
-                    grantResults[1] == PackageManager.PERMISSION_GRANTED) {
-                // Permissions granted; proceed with location-based tasks.
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Location permissions granted, proceed with fetching weather data
                 fetchWeatherBasedOnLocation();
             } else {
-                // Permissions denied; inform the user or handle as needed.
-                Toast.makeText(this, "Location permissions are required for this app.", Toast.LENGTH_SHORT).show();
+                // Location permissions denied, handle accordingly
+                Toast.makeText(this, "Location permissions denied. Unable to fetch weather data.", Toast.LENGTH_SHORT).show();
             }
         }
     }
-
-    // Helper method to handle errors and display detailed error messages
-    private void handleError(String errorMessage) {
-        currentWeatherTextView.setText(errorMessage);
-        upcomingWeatherTextView.setText("");
-    }
 }
-
-
-
-
