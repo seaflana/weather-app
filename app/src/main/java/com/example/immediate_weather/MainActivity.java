@@ -116,13 +116,17 @@ public class MainActivity extends AppCompatActivity {
                                 for (int i = 0; i < forecastday.length(); i++) {
                                     JSONObject forecastDayData = forecastday.getJSONObject(i);
                                     String date = forecastDayData.getString("date");
-                                    String condition = forecastDayData.getJSONObject("day").getString("condition");
+
+                                    // Parse the condition object
+                                    JSONObject conditionObject = forecastDayData.getJSONObject("day").getJSONObject("condition");
+                                    String conditionText = conditionObject.getString("text"); // Get the condition text
+
                                     double maxTempFahrenheit = forecastDayData.getJSONObject("day").getDouble("maxtemp_f");
                                     double minTempFahrenheit = forecastDayData.getJSONObject("day").getDouble("mintemp_f");
 
                                     // Append the forecast data to the upcomingWeather StringBuilder
                                     upcomingWeather.append("\nDate: ").append(date);
-                                    upcomingWeather.append("\nCondition: ").append(condition);
+                                    upcomingWeather.append("\nCondition: ").append(conditionText); // Use the condition text
                                     upcomingWeather.append("\nMax Temp: ").append(maxTempFahrenheit).append("°F");
                                     upcomingWeather.append("\nMin Temp: ").append(minTempFahrenheit).append("°F");
                                     upcomingWeather.append("\n");
@@ -173,6 +177,7 @@ public class MainActivity extends AppCompatActivity {
         upcomingWeatherTextView.setText("");
     }
 }
+
 
 
 
