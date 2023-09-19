@@ -27,8 +27,6 @@ import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.tasks.OnSuccessListener;
 
-import java.util.Calendar;
-
 public class MainActivity extends AppCompatActivity {
 
     private static final int REQUEST_LOCATION_PERMISSION = 123;
@@ -141,34 +139,20 @@ public class MainActivity extends AppCompatActivity {
                                     .getJSONObject(0)
                                     .getJSONArray("hour");
 
-// Check if there are hourly forecast data available
+                            // Check if there are hourly forecast data available
                             if (hourlyForecast.length() > 0) {
                                 StringBuilder hourlyWeather = new StringBuilder("Today's Hourly Weather:\n");
 
-                                // Get the current time to find the start time for the forecast
-                                Calendar calendar = Calendar.getInstance();
-                                int currentHour = calendar.get(Calendar.HOUR_OF_DAY); // Get current hour
-                                int startHour = (currentHour + 1) % 24; // Calculate start hour, wrapping around to 0 if needed
+                                // Adjusted the loop to show the next 9 hours
+                                for (int i = 0; i < 9 && i < hourlyForecast.length(); i++) {
+                                    JSONObject hourlyData = hourlyForecast.getJSONObject(i);
+                                    String time = hourlyData.getString("time");
+                                    double tempFahrenheit = hourlyData.getDouble("temp_f");
 
-                                // Loop through the next 8 hours, starting from the calculated start hour
-                                for (int i = 0; i < 8; i++) {
-                                    int forecastHour = (startHour + i) % 24; // Calculate the forecast hour
-                                    String formattedHour = String.format("%02d:00", forecastHour); // Format the hour (e.g., "08:00")
-
-                                    for (int j = 0; j < hourlyForecast.length(); j++) {
-                                        JSONObject hourlyData = hourlyForecast.getJSONObject(j);
-                                        int hour = hourlyData.getInt("time_epoch");
-                                        double tempFahrenheit = hourlyData.getDouble("temp_f");
-
-                                        // Check if the current data corresponds to the forecast hour
-                                        if (hour == forecastHour * 3600) { // Convert forecastHour to seconds
-                                            // Append the forecast data to the hourlyWeather StringBuilder
-                                            hourlyWeather.append("\nTime: ").append(formattedHour);
-                                            hourlyWeather.append("\nTemperature: ").append(tempFahrenheit).append("°F");
-                                            hourlyWeather.append("\n");
-                                            break; // Exit the inner loop once data is found for the forecast hour
-                                        }
-                                    }
+                                    // You can adjust the time format here if needed
+                                    hourlyWeather.append("\nTime: ").append(time);
+                                    hourlyWeather.append("\nTemperature: ").append(tempFahrenheit).append("°F");
+                                    hourlyWeather.append("\n");
                                 }
 
                                 hourlyWeatherTextView.setText(hourlyWeather.toString());
